@@ -34,7 +34,8 @@ def cansave(v):
         return True
     if t==int or t==np.int32 or t==np.int64 \
        or t==float or t==np.float64 or t==np.float32 \
-       or t==complex or t==np.complex128 or t==np.complex64:
+       or t==complex or t==np.complex128 or t==np.complex64 \
+       or t==np.bool_ or t==np.intc or t==bool:
         return True
     if t==dict:
         for k,v1 in v.items():
