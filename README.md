@@ -113,24 +113,44 @@ FITNESS FOR A PARTICULAR PURPOSE.”
 That said, the author shares your concerns and has made efforts to
 make ppersist safe and reliable. Read on for details.
 
+
+### Security
+
+By this I mean: How certain can you be that ppersist will not run
+arbitrary code contained in a file it loads?
+
 Internally, ppersist uses `pickle` to save and load its files. Any
 quick glance online will tell you that `pickle` is not inherently
-safe. Two mechanisms are provided to mitigate this. Most importantly,
-`ppersist.load` and friends use a whitelist to strictly limit what can
-be loaded. This should provide some reassurance that files you receive
-from others are safe to load. Secondly, `ppersist.save` and friends
-check whether variables can be safely reloaded. This should provide
-some reassurance that you will be able to reload your files in the
-future.
+safe. To mitigate this, `ppersist.load` and friends use a whitelist to
+strictly limit what can be loaded. Objects with types not on the
+whitelist are not loaded and their defining modules are not
+imported. This should provide some reassurance that files you receive
+from others are safe to load.
 
-The whitelist can be disabled by passing `trusted=True` to
-`ppersist.load` in case you find yourself unable to load a definitely
-trusted file due to a possible inconsistency between ppersist’s
-save-time and load-time checking. If that happens, it is a bug, and
-the author wants to hear from you.
+All of that said, if human lives depend on the integrity of your
+server, you should absolutely do your own due diligence.
 
-If for whatever reason you find yourself without access to ppersist,
-you can always reload your data with
+
+### Reliability
+
+By this I mean: How likely is it that you will be able to still access
+your data in the distant future? Here, the use of `pickle` is actually
+an advantage, as that module is part of core Python and unlikely to
+ever go away.
+
+Before actually writing anything to disk, `ppersist.save` and friends
+check whether variables can be safely reloaded. If not, they raise an
+exception. This should provide some reassurance that you will be able
+to reload your files in the future.
+
+In case you do find yourself unable to load a definitely trusted file
+due to an inconsistency between ppersist’s save-time and load-time
+checking, you can disable the whitelist by passing `trusted=True` to
+`ppersist.load`. (If that happens, it is a bug, and the author wants
+to hear from you.)
+
+In the worst case, if you find yourself without access to ppersist
+entirely, you can always reload your data with
 
     dct = pickle.load("filename.pkl")
     
