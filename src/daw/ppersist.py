@@ -14,7 +14,7 @@ def cansave(v):
     Currently, PPERSIST can save:
 
       - None
-      - Numpy arrays (but not containing np.object)
+      - Numpy arrays (but not containing object)
       - Strings
       - Simple numbers (int, float, complex)
       - Lists, tuples, sets, and dicts containing those (even hierarchically).
@@ -28,7 +28,7 @@ def cansave(v):
     if v is None:
         return True
     t = type(v)
-    if t==np.ndarray and v.dtype!=np.object:
+    if t==np.ndarray and v.dtype!=object:
         return True
     if t==str:
         return True
@@ -116,6 +116,7 @@ def savedict(fn, dct):
             raise ValueError('Bad variable name: ' + k)
         if not cansave(v):
             raise ValueError('Cannot save variable: ' + k)
+    dct['__names__'] = [name for name in dct if name != "__names__"]
 
     with open(fn, 'wb') as fd:  
         pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
@@ -195,7 +196,10 @@ def load(fn, trusted=False):
     any pickle. Only do this for files that you actually trust. 
     '''
     dct = _load(fn, trusted)
-    names = dct['__names__']
+    if '__names__' in dct:
+        names = dct['__names__']
+    else:
+        names = list(dct.keys())
     class Tuple(collections.namedtuple('Tuple', names)):
         revmap = { name: num for num, name in enumerate(names) }
         def __getitem__(self, k):
