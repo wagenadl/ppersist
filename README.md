@@ -108,7 +108,7 @@ First of all, be reminded that ppersist is Free Software. As such, it
 is “distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.” 
-(Please read the [Full license terms](./license).)
+(Please read the [Full license terms](./LICENSE).)
 
 That said, the author shares your concerns and has made efforts to
 make ppersist safe and reliable. Read on for details.
