@@ -31,7 +31,7 @@ Will soon be as easy as
     pip install ppersist
     
 For now, please copy the file
-[“ppersist.py”](./src/ppersist/pperist.py) into your local
+[“ppersist.py”](./src/ppersist/ppersist.py) into your local
 Python environment.
 
 
