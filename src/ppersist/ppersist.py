@@ -1,11 +1,33 @@
 #!/usr/bin/python3
 
+
+## ppersist - easy saving and reloading of complex data
+## Copyright (C) 2024  Daniel A. Wagenaar
+## 
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU Lesser General Public License as
+## published by the Free Software Foundation, either version 3 of the
+## License, or (at your option) any later version.
+## 
+## This program is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+## 
+## You should have received a copy of the GNU Lesser General Public License
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 import numpy as np
 import pandas as pd
 import pickle
 import inspect
 import re
 import collections
+
+
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver"]
+
 
 def cansave(v):
     '''CANSAVE - Can a given object be saved by PPERSIST?
@@ -14,9 +36,10 @@ def cansave(v):
     Currently, PPERSIST can save:
 
       - None
-      - Numpy arrays (but not containing object)
-      - Strings
       - Simple numbers (int, float, complex)
+      - Strings
+      - Numpy arrays (but not containing object)
+      - Pandas dataframes and series (ditto)
       - Lists, tuples, sets, and dicts containing those (even hierarchically).
 
     Importantly, PPERSIST cannot save objects of arbitrary class or
@@ -56,33 +79,55 @@ def cansave(v):
     print(f'Cannot save {t}')
     return False
 
-def save(fn, *args):
+
+def save(filename, *args):
     '''SAVE - Save multiple variables in one go as in Octave/Matlab
+
     SAVE(filename, var1, var2, ..., varN) saves each of the variables
     VAR1...VARN into a single PICKLE file.
-    The result can be loaded with
-      LOAD(filename)
-    or
-      var1, var2, ..., varN = LOAD(filename)
-    or
-      vv = LOADDICT(filename)
-    In the latter case, vv becomes a DICT with the original variable
-    names as keys.
-    Note that SAVE is a very hacked function: It uses the INSPECT module
-    to determine how it was called. That means that VARi must all be simple
-    variables and that the FILENAME, if given as a direct string, may not 
-    contain commas. Variable names must start with a letter and may only
-    contain letters, numbers, and underscore.
+
+    See LOAD, LOADDICT, and MLOAD for how to reload saved data.
+
+    Only variables that can safely be reloaded will be saved.
+    Currently, PPERSIST can save:
+
+      - None
+      - Simple numbers (int, float, complex)
+      - Strings
+      - Numpy arrays (but not containing object)
+      - Pandas dataframes and series (ditto)
+      - Lists, tuples, sets, and dicts containing those (even hierarchically).
+
+    Importantly, PPERSIST will not save objects of arbitrary class or
+    function type.
+
+    To check whether a variable is saveable ahead of time, use CANSAVE.
+    
+    Note that SAVE uses the INSPECT module to determine how it was
+    called. That means that VARi must all be simple variables and that
+    the FILENAME, if given as a direct string, may not contain commas
+    or quotation marks. Variable names must start with a letter and
+    may only contain letters, numbers, and underscore.
+    
     OK examples:
+    
       x = 3
       y = 'Hello'
       z = np.eye(3)
+    
       save('/tmp/test.pkl', x, y, z)
-      fn = '/tmp/test,1.pkl'
-      save(fn, x, y, z)
+    
+      filename = '/tmp/test,1.pkl'
+      save(filename, x, y, z)
+    
     Bad examples:
+    
       save('/tmp/test,1.pkl', x, y)
-      save('/tmp/test.pkl', x+3)'''
+    
+      save('/tmp/test.pkl', x + 3)
+
+    '''
+    
     frame = inspect.currentframe().f_back
     string = inspect.getframeinfo(frame).code_context[0]
     sol = string.find('(') + 1
@@ -102,27 +147,41 @@ def save(fn, *args):
     dct = {}
     for k in range(N):
         dct[names[k]] = args[k]
-    dct['__names__'] = names
-    savedict(fn, dct)
+    savedict(filename, dct)
 
-def savedict(fn, dct):
+    
+def savedict(filename, dct):
     '''SAVEDICT - Save data from a DICT
-    SAVEDICT(filename, dct), where DCT is a DICT, saves the data contained
-    therein as a PICKLE file. The result can be loaded with
-      dct = LOADDICT(filename).'''
+    
+    SAVEDICT(filename, dct), where DCT is a `dict`, saves the data contained
+    therein as a PICKLE file.
+
+    See SAVE for the type of content that SAVEDICT can save.
+
+    See LOAD, LOADDICT, and MLOAD for how to reload saved data.
+    '''
     nre = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     for k, v in dct.items():
         if not nre.match(k):
             raise ValueError('Bad variable name: ' + k)
         if not cansave(v):
             raise ValueError('Cannot save variable: ' + k)
-    dct['__names__'] = [name for name in dct if name != "__names__"]
 
-    with open(fn, 'wb') as fd:  
+    with open(filename, 'wb') as fd:  
         pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
 
-    
         
+def savedict_ignorewhitelist(filename, dct):
+    '''SAVEDICT_IGNOREWHITELIST - Save data from a DICT unconditionally
+
+    Mainly intended for internal testing, this does the same thing as
+    SAVEDICT except that it does not check whether reloading the data
+    would be safe.
+
+    '''
+    with open(filename, 'wb') as fd:  
+        pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
+
 
 _allowed = [
     ("numpy.core.numeric", "_frombuffer"),
@@ -145,6 +204,7 @@ _allowed = [
     ("builtins", "slice"),
 ]
 
+
 class SafeLoader(pickle.Unpickler):
     def find_class(self, module, name):
         if (module, name) in _allowed:
@@ -160,46 +220,60 @@ class UnsafeLoader(pickle.Unpickler):
         return super().find_class(module, name)
 
     
-def _load(fn, trusted=False):
-    with open(fn, 'rb') as fd:
+def _load(filename, trusted=False):
+    with open(filename, 'rb') as fd:
         if trusted:
             return UnsafeLoader(fd).load()
         else:
             return SafeLoader(fd).load()
     
 
-def loaddict(fn, trusted=False):
+def loaddict(filename, trusted=False):
+
     '''LOADDICT - Reload data saved with SAVE or SAVEDICT
-    x = LOADDICT(fn) loads the file named FN, which should have been created
-    by SAVE. The result is a dictionary with the original variable names
-    as keys.
+    
+    x = LOADDICT(filename) loads the file named FILENAME, which should
+    have been created by SAVE or SAVEDICT. The result is a dictionary
+    with the original variable names as keys.
+    
     Optional parameter TRUSTED may be used to turn off safety checks
     in the underlying pickle loading. With the default TRUSTED=False, 
     we only allow loading of very specific object types, even when nested
     inside Pandas dataframes or numpy arrays. TRUSTED=True enables loading
-    any pickle. Only do this for files that you actually trust. '''
-    # Pass unsafe=True only for debugging on trusted files!
-    dct = _load(fn, trusted)
-    del dct['__names__']
+    any pickle.
+
+    Important: Only use TRUSTED for files that you actually trust!
+
+    '''
+    
+    dct = _load(filename, trusted)
+    if '__names__' in dct:
+        del dct['__names__']
     return dct
 
-def load(fn, trusted=False):
+
+def load(filename, trusted=False):
     '''LOAD - Reload data saved with SAVE or SAVEDICT
-    x = LOAD(fn) loads the file named FN which should have been created
-    by SAVE or SAVEDICT. 
+    
+    x = LOAD(filename) loads the file named FILENAME which should have
+    been created by SAVE or SAVEDICT.
+    
     The result is a named tuple with the original variable names as keys.
-    v1, v2, ..., vn = LOAD(fn) immediately unpacks the tuple.
+
+    v1, v2, ..., vn = LOAD(filename) immediately unpacks the tuple.
+
     Optional parameter TRUSTED may be used to turn off safety checks
-    in the underlying pickle loading. With the default TRUSTED=False, 
-    we only allow loading of very specific object types, even when nested
-    inside Pandas dataframes or numpy arrays. TRUSTED=True enables loading
-    any pickle. Only do this for files that you actually trust. 
+    in the underlying pickle loading. With the default TRUSTED=False,
+    we only allow loading of very specific object types, even when
+    nested inside Pandas dataframes or numpy arrays. TRUSTED=True
+    enables loading any pickle.
+
+    Important: Only use TRUSTED for files that you actually trust!
+
     '''
-    dct = _load(fn, trusted)
-    if '__names__' in dct:
-        names = dct['__names__']
-    else:
-        names = list(dct.keys())
+    
+    dct = _load(filename, trusted)
+    names = dct['__names__'] if '__names__' in dct else list(dct.keys())
     class Tuple(collections.namedtuple('Tuple', names)):
         revmap = { name: num for num, name in enumerate(names) }
         def __getitem__(self, k):
@@ -222,23 +296,92 @@ def load(fn, trusted=False):
     return Tuple(*lst)
 
 
-def mload(fn, trusted=False):
-    '''MLOAD - Reload data saved with SAVE 
-    MLOAD(fn)  directly loads the variables saved by SAVE(fn, ...) 
+def mload(filename, trusted=False):
+    '''MLOAD - Reload data saved with SAVE
+    
+    MLOAD(filename)  directly loads the variables saved by SAVE(filename, ...) 
     into the caller's namespace.
+    
     This is a super ugly Matlab-style hack, but convenient for quick hacking.
-    LOAD and LOADDICT are cleaner alternatives
+    
+    LOAD and LOADDICT are cleaner alternatives.
+    
     Optional parameter TRUSTED may be used to turn off safety checks
     in the underlying pickle loading. With the default TRUSTED=False, 
     we only allow loading of very specific object types, even when nested
     inside Pandas dataframes or numpy arrays. TRUSTED=True enables loading
-    any pickle. Only do this for files that you actually trust. 
+    any pickle.
+    
+    Important: Only use TRUSTED for files that you actually trust!
+
 '''
-    dct = _load(fn, trusted)
-    names = dct['__names__']
+    dct = _load(filename, trusted)
+    names = dct['__names__'] if '__names__' in dct else list(dct.keys())
 
     frame = inspect.currentframe().f_back
     # inject directly into calling frame
     for k in names:
         frame.f_locals[k] = dct[k]
     print(f'Loaded the following: {", ".join(names)}.')
+
+
+class Saver:
+    """Object-oriented interface to saving with ppersist.
+
+    This allows the syntax
+
+        with ppersist.Saver(filename) as pp:
+            pp.save(var1, var2, ...)
+
+    The main advantage over plain
+
+        ppersist.save(filename, var1, var2, ...)
+
+    is that FILENAME may be an arbitrary expression.
+    """
+    def __init__(self, filename):
+        self.filename = filename
+        self.opened = False
+
+    def __enter__(self):
+        self.opened = True
+        self.dct = {}
+        return self
+
+    def save(self, *args):
+        """Save the named variables into the file
+
+        This uses INSPECT just like `ppersist.save` does.
+
+        Use SAVE multiple times to save additional variables.
+
+        The data are only actually saved once the Saver is closed.
+        
+        """
+        if not self.opened:
+            raise ValueError("Cannot save without opening first")
+        frame = inspect.currentframe().f_back
+        string = inspect.getframeinfo(frame).code_context[0]
+        sol = string.find('(') + 1
+        eol = string.find(')')
+        names = [a.strip() for a in string[sol:eol].split(',')]
+        if len(names) != len(args):
+            raise ValueError('Bad call to SAVE')
+        nre = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
+        N = len(args)
+        for k in range(N):
+            if not nre.match(names[k]):
+                raise ValueError('Bad variable name: ' + names[k])
+            if not cansave(args[k]):
+                raise ValueError('Cannot save variable: ' + names[k])
+
+        for k in range(N):
+            self.dct[names[k]] = args[k]
+
+    def __exit__(self, *args):
+        if not self.opened:
+            raise ValueError("Not opened")
+        savedict(self.filename, self.dct)
+        self.opened = False
+
+    
