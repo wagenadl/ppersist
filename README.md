@@ -13,7 +13,8 @@ which saves the named variables directly to a file. The corresponding
     
 reloads the saved variables and dumps them into the global namespace.
 
-This packages offers the closest pythonic equivalent. With it, you can write
+This packages aims to offer the closest pythonic equivalent. With it,
+you can write
 
     ppersist.save("filename.pkl", variableA, variableB, ...)
     
