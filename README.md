@@ -23,7 +23,7 @@ to save some variables, and
     
 to reload them into a `namedtuple`. 
 
-[^1] See the [Alternatives](#Alternatives) section at the end of this
+[^1]: See the [Alternatives](#Alternatives) section at the end of this
 document.
 
 ## Installation
