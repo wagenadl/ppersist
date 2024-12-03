@@ -2,7 +2,7 @@
 
 ## Introduction
 
-There are many ways to save data from python for future use, but none
+There are many ways[^1] to save data from python for future use, but none
 are quite as convenient as Matlab and Octave’s “save”:
 
     save filename.mat variableA variableB ...
@@ -23,6 +23,8 @@ to save some variables, and
     
 to reload them into a `namedtuple`. 
 
+[^1] See the [Alternatives](#Alternatives) section at the end of this
+document.
 
 ## Installation
 
@@ -157,4 +159,59 @@ entirely, you can always reload your data with
     dct = pickle.load("filename.pkl")
     
 even though that provides no security at all.
+
+## Alternatives
+
+To help you decide whether ppersist is for you, here are three
+alternatives I considered before writing ppersist.
+
+### JSON
+
+Widely supported, human-readable, **JSON** is a great file format for
+small quantities of data. It naturally supports basic Python data
+types and structures. However, for larger datasets, its main
+strength—storage as text—becomes a liability as it imposes a
+significant cost both in processing time and storage space. Also,
+there is no agreed-upon standard for represention numpy arrays in
+JSON.
+
+### CSV
+
+Also widely supported and human-readable, **CSV** is good for handling
+straight-up two-dimensional arrays of data, but it does not naturally
+handle other Python structures. Also, inefficient for larger datasets.
+
+### NPY
+
+Numpy can store its main data format (`np.ndarray`) in **.NPY** files,
+simply using `np.save`, and reload it with `np.load`. However, this
+format cannot hold multiple `np.ndarray`s in one file. Neither can it
+store other Python data structures (even when wrapped inside an
+`np.ndarray`.)
+
+### HDF5
+
+A very capacious file format, **HDF5** can in principle store all the
+data formats that ppersist supports and is excellent for long-term
+storage of very large datasets, as files can be written
+incrementally. However, the mapping between Python datatypes and HDF5
+datatypes is not quite one-to-one. The `pandas` library can use HDF5
+for storing its `DataFrame`s on disk, if only for a subset of the
+datatypes and structures it support.
+
+I considered using HDF5 as a backend for ppersist. (Using it directly
+was not attractive to me as the syntax for storing and retrieving data
+is more elaborate than I wanted.) What kept me from choosing it, in
+the end, was the complexity of supporting all the basic Python
+datatypes, especially when considering their hierarchical inclusion in
+pandas `DataFrames` and the like.
+
+### Parquet
+
+Developed by Apache, **Parquet** provides [“high performance
+compression and encoding schemes to handle complex data in
+bulk”](https://github.com/apache/parquet-format). Similar
+considerations to HDF5 apply: the `fastparquet` library does not (yet)
+support all Python datatypes, so constructing an easy-to-ues API like
+ppersist’s on top of it would be complex.
 
