@@ -27,7 +27,7 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver", "fetch"]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver", "fetch", "savedict_ignorewhitelist"]
 
 
 def cansave(v: Any) -> bool:
@@ -185,24 +185,29 @@ def savedict_ignorewhitelist(filename: str, dct: Dict[str, Any]) -> None:
 
 
 _allowed = [
-    ("numpy.core.numeric", "_frombuffer"),
-    ("numpy", "dtype"),
-    ("pandas.core.frame", "DataFrame"),
-    ("pandas.core.internals.managers", "BlockManager"),
-    ("functools", "partial"),
-    ("pandas.core.internals.blocks", "new_block"),
-    ("builtins", "slice"),
-    ("pandas.core.indexes.base", "_new_Index"),
-    ("pandas.core.indexes.base", "Index"),
-    ("numpy.core.multiarray", "_reconstruct"),
-    ("numpy.core.multiarray", "scalar"),
-    ("numpy", "ndarray"),
-    ("pandas.core.indexes.range", "RangeIndex"),
     ("builtins", "complex"),
     ("builtins", "set"),
     ("builtins", "frozenset"),
     ("builtins", "range"),
     ("builtins", "slice"),
+    
+    ("functools", "partial"),
+    
+    ("numpy", "ndarray"),
+    ("numpy", "dtype"),
+    ("numpy.core.multiarray", "scalar"),  
+    ("numpy.core.numeric", "_frombuffer"),
+    ("numpy.core.multiarray", "_reconstruct"),
+    
+    ("pandas.core.frame", "DataFrame"),
+    ("pandas.core.series", "Series"),
+    ("pandas.core.indexes.base", "Index"),
+    ("pandas.core.indexes.range", "RangeIndex"),
+    ("pandas.core.indexes.base", "_new_Index"),
+    ("pandas.core.internals.managers", "SingleBlockManager"),
+    ("pandas.core.internals.managers", "BlockManager"),
+    ("pandas.core.internals.blocks", "new_block"),
+    ("pandas._libs.internals", "_unpickle_block"),
 ]
 
 
@@ -253,6 +258,32 @@ def loaddict(filename: str, trusted: bool = False) -> Dict[str, Any]:
     return dct
 
 
+def _maketuple(dct):
+    names = dct.get('__names__', list(dct.keys()))
+    class Tuple(collections.namedtuple('Tuple', names)):
+        revmap = { name: num for num, name in enumerate(names) }
+        def __getitem__(self, k):
+            if type(k)==str:
+                if k in Tuple.revmap:
+                    k = Tuple.revmap[k]
+                else:
+                    raise KeyError(k)
+            else:
+                return super().__getitem__(k)
+        def __str__(self):
+            hdr = "Tuple with fields:\n  "
+            return hdr + "\n  ".join(Tuple.revmap.keys())
+        def __repr__(self):
+            lst = [f"'{key}'" for key in Tuple.revmap.keys()]
+            return "<Tuple(" + ", ".join(lst) + ")>"
+        def keys(self):
+            return Tuple.revmap.keys()
+    lst = []
+    for n in names:
+        lst.append(dct[n])
+    return Tuple(*lst)
+    
+
 def load(filename: str, trusted: bool = False) -> NamedTuple:
     '''LOAD - Reload data saved with SAVE or SAVEDICT
     
@@ -274,36 +305,16 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
     '''
     
     dct = _load(filename, trusted)
-    names = dct['__names__'] if '__names__' in dct else list(dct.keys())
-    class Tuple(collections.namedtuple('Tuple', names)):
-        revmap = { name: num for num, name in enumerate(names) }
-        def __getitem__(self, k):
-            if type(k)==str:
-                if k in Tuple.revmap:
-                    k = Tuple.revmap[k]
-                else:
-                    raise KeyError(k)
-            else:
-                return super().__getitem__(k)
-        def __str__(self):
-            return "Tuple with fields:\n  " + "\n  ".join(Tuple.revmap.keys())
-        def __repr__(self):
-            return "<Tuple(" + ", ".join(["'"+n+"'" for n in Tuple.revmap.keys()]) + ")>"
-        def keys(self):
-            return Tuple.revmap.keys()
-    lst = []
-    for n in names:
-        lst.append(dct[n])
-    return Tuple(*lst)
+    return _maketuple(dct)
 
 
 def mload(filename: str, trusted: bool = False) -> None:
     '''MLOAD - Reload data saved with SAVE
     
-    MLOAD(filename)  directly loads the variables saved by SAVE(filename, ...) 
-    into the caller's namespace.
+    MLOAD(filename)  loads the variables saved by SAVE(filename, ...) 
+    directly into the caller's namespace.
     
-    This is a super ugly Matlab-style hack, but convenient for quick hacking.
+    This is a super ugly Matlab-style hack, but occasionally convenient.
     
     LOAD and LOADDICT are cleaner alternatives.
     
@@ -387,8 +398,14 @@ class Saver:
 
     
 def fetch(url: str) -> NamedTuple:
-    import urllib
-    with urllib.request.urlopen(url) as fd:
-        return SafeLoader(fd).load()
+    """Fetch a ppersist-saved file from the internet
 
+    fetch(url) behaves just like load(file), except that it retrieves
+    the data from the internet. For security, there is no “trusted”
+    option on fetch().
+    """
+    import urllib.request
+    with urllib.request.urlopen(url) as fd:
+        dct = SafeLoader(fd).load()
+        return _maketuple(dct)
     

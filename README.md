@@ -91,7 +91,7 @@ As an alternative,
    
 returns the variables as items in a dictionary.
 
-Both form may be used without restriction with files created by
+Both forms may be used without restriction with files created by
 `ppersist.save` or `ppersist.savedict`.
 
 Finally, the form
