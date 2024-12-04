@@ -24,12 +24,13 @@ import pickle
 import inspect
 import re
 import collections
+from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver"]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver", "fetch"]
 
 
-def cansave(v):
+def cansave(v: Any) -> bool:
     '''CANSAVE - Can a given object be saved by PPERSIST?
     CANSAVE(v) returns True if V can be saved by PPERSIST.
 
@@ -80,7 +81,7 @@ def cansave(v):
     return False
 
 
-def save(filename, *args):
+def save(filename: str, *args: Any) -> None:
     '''SAVE - Save multiple variables in one go as in Octave/Matlab
 
     SAVE(filename, var1, var2, ..., varN) saves each of the variables
@@ -150,7 +151,7 @@ def save(filename, *args):
     savedict(filename, dct)
 
     
-def savedict(filename, dct):
+def savedict(filename: str, dct: Dict[str, Any]) -> None:
     '''SAVEDICT - Save data from a DICT
     
     SAVEDICT(filename, dct), where DCT is a `dict`, saves the data contained
@@ -171,7 +172,7 @@ def savedict(filename, dct):
         pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
 
         
-def savedict_ignorewhitelist(filename, dct):
+def savedict_ignorewhitelist(filename: str, dct: Dict[str, Any]) -> None:
     '''SAVEDICT_IGNOREWHITELIST - Save data from a DICT unconditionally
 
     Mainly intended for internal testing, this does the same thing as
@@ -228,7 +229,7 @@ def _load(filename, trusted=False):
             return SafeLoader(fd).load()
     
 
-def loaddict(filename, trusted=False):
+def loaddict(filename: str, trusted: bool = False) -> Dict[str, Any]:
 
     '''LOADDICT - Reload data saved with SAVE or SAVEDICT
     
@@ -252,7 +253,7 @@ def loaddict(filename, trusted=False):
     return dct
 
 
-def load(filename, trusted=False):
+def load(filename: str, trusted: bool = False) -> NamedTuple:
     '''LOAD - Reload data saved with SAVE or SAVEDICT
     
     x = LOAD(filename) loads the file named FILENAME which should have
@@ -296,7 +297,7 @@ def load(filename, trusted=False):
     return Tuple(*lst)
 
 
-def mload(filename, trusted=False):
+def mload(filename: str, trusted: bool = False) -> None:
     '''MLOAD - Reload data saved with SAVE
     
     MLOAD(filename)  directly loads the variables saved by SAVE(filename, ...) 
@@ -339,7 +340,7 @@ class Saver:
 
     is that FILENAME may be an arbitrary expression.
     """
-    def __init__(self, filename):
+    def __init__(self, filename: str):
         self.filename = filename
         self.opened = False
 
@@ -348,7 +349,7 @@ class Saver:
         self.dct = {}
         return self
 
-    def save(self, *args):
+    def save(self, *args: Any) -> None:
         """Save the named variables into the file
 
         This uses INSPECT just like `ppersist.save` does.
@@ -383,5 +384,11 @@ class Saver:
             raise ValueError("Not opened")
         savedict(self.filename, self.dct)
         self.opened = False
+
+    
+def fetch(url: str) -> NamedTuple:
+    import urllib
+    with urllib.request.urlopen(url) as fd:
+        return SafeLoader(fd).load()
 
     
