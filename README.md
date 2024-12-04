@@ -29,14 +29,9 @@ document.
 
 ## Installation
 
-Will soon be as easy as
+As easy as:
 
     pip install ppersist
-    
-For now, please copy the file
-[“ppersist.py”](./src/ppersist/ppersist.py) into your local
-Python environment.
-
 
 ## Saving data
 
@@ -216,3 +211,6 @@ considerations to HDF5 apply: the `fastparquet` library does not (yet)
 support all Python datatypes, so constructing an easy-to-ues API like
 ppersist’s on top of it would be complex.
 
+## Development
+
+Development of ppersist is on [github](https://github.com/wagenadl/ppersist).
