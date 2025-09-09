@@ -39,31 +39,13 @@ The most straightforward way to save your data is
 
     ppersist.save("filename.pkl", variableA, variableB, ...)
 
-This uses `inspect` to extract the names of the variables. This poses
-some restrictions on the arguments. In particular, the filename may
-only be given either as a simple variable or as a direct string not
-containing commas or quotation marks. Also, variable names must start
-with a letter and may only contain letters, numbers, and underscores. 
+Note that this uses the `inspect` module to discover the names of the
+variables to be saved. That means that variableA, variableB, etc.,
+must all be simple variables. Variable names must start with a letter
+and may only contain letters, numbers, and underscore.
 
-As an alternative, you can use the idiom
-
-    with ppersist.Saver(filename) as pp:
-        pp.save(variableA, variableB, ...)
-        
-In this form, the filename may be any valid python expression. Also,
-if the variable list is too long to fit comfortably on a line, you can
-write
-
-    with ppersist.Saver("filename.pkl") as pp:
-        pp.save(variableA, variableB, ...)
-        pp.save(variableC, variableD, ...)
-        ...
-
-which is not possible with plain `save`. (Continuation lines are not
-supported to keep the `inspect` system as simple as possible.)
-
-
-Finally, if your data are already packaged in a dictionary, you can write
+Alternatively, if your data are already packaged in a dictionary, you
+can write
 
     ppersist.savedict("filename.pkl", dct)
     
@@ -107,8 +89,8 @@ data and that loading files your receive from others are safe to load.
 First of all, be reminded that ppersist is Free Software. As such, it
 is “distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.” 
-(Please read the [Full license terms](./LICENSE).)
+FITNESS FOR A PARTICULAR PURPOSE.” (Please read the [Full license
+terms](./LICENSE).)
 
 That said, the author shares your concerns and has made efforts to
 make ppersist safe and reliable. Read on for details.

@@ -329,7 +329,6 @@ def mload(filename: str, trusted: bool = False) -> None:
         frame.f_locals[k] = dct[k]
     print(f'Loaded the following: {", ".join(names)}.')
 
-
     
 def fetch(url: str) -> NamedTuple:
     """Fetch a ppersist-saved file from the internet
@@ -342,62 +341,4 @@ def fetch(url: str) -> NamedTuple:
     with urllib.request.urlopen(url) as fd:
         dct = SafeLoader(fd).load()
         return _maketuple(dct)
-    
-
-class Saver:
-    """Object-oriented interface to saving with ppersist.
-
-    This allows the syntax
-
-        with ppersist.Saver(filename) as pp:
-            pp.save(var1, var2, ...)
-
-    The main advantage over plain
-
-        ppersist.save(filename, var1, var2, ...)
-
-    is that FILENAME may be an arbitrary expression.
-    """
-    def __init__(self, filename: str):
-        self.filename = filename
-        self.opened = False
-
-    def __enter__(self):
-        self.opened = True
-        self.dct = {}
-        return self
-
-    def save(self, *args: Any) -> None:
-        """Save the named variables into the file
-
-        This uses INSPECT just like `ppersist.save` does.
-
-        Use SAVE multiple times to save additional variables.
-
-        The data are only actually saved once the Saver is closed.
-        
-        """
-        if not self.opened:
-            raise ValueError("Cannot save without opening first")
-        frame = inspect.currentframe().f_back
-
-        names = {}
-        for name, val in frame.f_locals.items():
-            names[id(val)] = name
-        for name, val in frame.f_globals.items():
-            if name not in frame.f_locals:
-                names[id(val)] = name
-        
-        for k, a in enumerate(args):
-            name = names.get(id(a))
-            if name:
-                self.dct[name] = a
-            else:
-                raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)}")
-
-    def __exit__(self, *args):
-        if not self.opened:
-            raise ValueError("Not opened")
-        savedict(self.filename, self.dct)
-        self.opened = False
     
