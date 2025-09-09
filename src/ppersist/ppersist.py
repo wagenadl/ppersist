@@ -27,7 +27,7 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver", "fetch", "savedict_ignorewhitelist"]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist", "Saver"]
 
 
 def cansave(v: Any) -> bool:
@@ -77,7 +77,6 @@ def cansave(v: Any) -> bool:
                 return False
         return True
 
-    print(f'Cannot save {t}')
     return False
 
 
@@ -104,11 +103,10 @@ def save(filename: str, *args: Any) -> None:
 
     To check whether a variable is saveable ahead of time, use CANSAVE.
     
-    Note that SAVE uses the INSPECT module to determine how it was
-    called. That means that VARi must all be simple variables and that
-    the FILENAME, if given as a direct string, may not contain commas
-    or quotation marks. Variable names must start with a letter and
-    may only contain letters, numbers, and underscore.
+    Note that SAVE uses the INSPECT module to discover the names of
+    the variables to be saved. That means that VARi must all be simple
+    variables. Variable names must start with a letter and may only
+    contain letters, numbers, and underscore.
     
     OK examples:
     
@@ -121,33 +119,29 @@ def save(filename: str, *args: Any) -> None:
       filename = '/tmp/test,1.pkl'
       save(filename, x, y, z)
     
-    Bad examples:
-    
-      save('/tmp/test,1.pkl', x, y)
+    Bad examplee:
     
       save('/tmp/test.pkl', x + 3)
 
     '''
     
     frame = inspect.currentframe().f_back
-    string = inspect.getframeinfo(frame).code_context[0]
-    sol = string.find('(') + 1
-    eol = string.find(')')
-    names = [a.strip() for a in string[sol:eol].split(',')]
-    names.pop(0)
-    if len(names) != len(args):
-        raise ValueError('Bad call to SAVE')
-    nre = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-    N = len(args)
-    for k in range(N):
-        if not nre.match(names[k]):
-            raise ValueError('Bad variable name: ' + names[k])
-        if not cansave(args[k]):
-            raise ValueError('Cannot save variable: ' + names[k])
+
+    names = {}
+    for name, val in frame.f_locals.items():
+        names[id(val)] = name
+    for name, val in frame.f_globals.items():
+        if name not in frame.f_locals:
+            names[id(val)] = name
 
     dct = {}
-    for k in range(N):
-        dct[names[k]] = args[k]
+    for k, a in enumerate(args):
+        name = names.get(id(a))
+        if name:
+            dct[name] = a
+        else:
+            raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)}")
+
     savedict(filename, dct)
 
     
@@ -164,12 +158,11 @@ def savedict(filename: str, dct: Dict[str, Any]) -> None:
     nre = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     for k, v in dct.items():
         if not nre.match(k):
-            raise ValueError('Bad variable name: ' + k)
+            raise ValueError(f"Bad variable name: “{k}”")
         if not cansave(v):
-            raise ValueError('Cannot save variable: ' + k)
-
-    with open(filename, 'wb') as fd:  
-        pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
+            raise ValueError(f"Cannot save variable “{k}” of type {type(v)}")
+        
+    savedict_ignorewhitelist(filename, dct)
 
         
 def savedict_ignorewhitelist(filename: str, dct: Dict[str, Any]) -> None:
@@ -268,8 +261,7 @@ def _maketuple(dct):
                     k = Tuple.revmap[k]
                 else:
                     raise KeyError(k)
-            else:
-                return super().__getitem__(k)
+            return super().__getitem__(k)
         def __str__(self):
             hdr = "Tuple with fields:\n  "
             return hdr + "\n  ".join(Tuple.revmap.keys())
@@ -290,7 +282,8 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
     x = LOAD(filename) loads the file named FILENAME which should have
     been created by SAVE or SAVEDICT.
     
-    The result is a named tuple with the original variable names as keys.
+    The result is a named tuple with the original variable names as
+    keys.
 
     v1, v2, ..., vn = LOAD(filename) immediately unpacks the tuple.
 
@@ -311,7 +304,7 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
 def mload(filename: str, trusted: bool = False) -> None:
     '''MLOAD - Reload data saved with SAVE
     
-    MLOAD(filename)  loads the variables saved by SAVE(filename, ...) 
+    MLOAD(filename) loads the variables saved by SAVE(filename, ...) 
     directly into the caller's namespace.
     
     This is a super ugly Matlab-style hack, but occasionally convenient.
@@ -336,6 +329,20 @@ def mload(filename: str, trusted: bool = False) -> None:
         frame.f_locals[k] = dct[k]
     print(f'Loaded the following: {", ".join(names)}.')
 
+
+    
+def fetch(url: str) -> NamedTuple:
+    """Fetch a ppersist-saved file from the internet
+
+    fetch(url) behaves just like load(file), except that it retrieves
+    the data from the internet. For security, there is no “trusted”
+    option on fetch().
+    """
+    import urllib.request
+    with urllib.request.urlopen(url) as fd:
+        dct = SafeLoader(fd).load()
+        return _maketuple(dct)
+    
 
 class Saver:
     """Object-oriented interface to saving with ppersist.
@@ -373,39 +380,24 @@ class Saver:
         if not self.opened:
             raise ValueError("Cannot save without opening first")
         frame = inspect.currentframe().f_back
-        string = inspect.getframeinfo(frame).code_context[0]
-        sol = string.find('(') + 1
-        eol = string.find(')')
-        names = [a.strip() for a in string[sol:eol].split(',')]
-        if len(names) != len(args):
-            raise ValueError('Bad call to SAVE')
-        nre = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-        N = len(args)
-        for k in range(N):
-            if not nre.match(names[k]):
-                raise ValueError('Bad variable name: ' + names[k])
-            if not cansave(args[k]):
-                raise ValueError('Cannot save variable: ' + names[k])
 
-        for k in range(N):
-            self.dct[names[k]] = args[k]
+        names = {}
+        for name, val in frame.f_locals.items():
+            names[id(val)] = name
+        for name, val in frame.f_globals.items():
+            if name not in frame.f_locals:
+                names[id(val)] = name
+        
+        for k, a in enumerate(args):
+            name = names.get(id(a))
+            if name:
+                self.dct[name] = a
+            else:
+                raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)}")
 
     def __exit__(self, *args):
         if not self.opened:
             raise ValueError("Not opened")
         savedict(self.filename, self.dct)
         self.opened = False
-
-    
-def fetch(url: str) -> NamedTuple:
-    """Fetch a ppersist-saved file from the internet
-
-    fetch(url) behaves just like load(file), except that it retrieves
-    the data from the internet. For security, there is no “trusted”
-    option on fetch().
-    """
-    import urllib.request
-    with urllib.request.urlopen(url) as fd:
-        dct = SafeLoader(fd).load()
-        return _maketuple(dct)
     

@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Convenient long-term storage of python data"
 readme = "README.md"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
     "numpy",
     "pandas",
