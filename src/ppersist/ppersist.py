@@ -27,7 +27,7 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist", "Saver"]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist""]
 
 
 def cansave(v: Any) -> bool:
