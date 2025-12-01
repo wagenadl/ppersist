@@ -27,7 +27,8 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "Saver", "fetch", "savedict_ignorewhitelist"]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload",
+           "fetch", "savedict_ignorewhitelist"]
 
 
 def cansave(v: Any) -> bool:
@@ -36,12 +37,13 @@ def cansave(v: Any) -> bool:
 
     Currently, PPERSIST can save:
 
-      - None
       - Simple numbers (int, float, complex)
       - Strings
       - Numpy arrays (but not containing object)
       - Pandas dataframes and series (ditto)
-      - Lists, tuples, sets, and dicts containing those (even hierarchically).
+      - Lists, tuples, sets, and dicts containing those (even
+        hierarchically).
+      - None
 
     Importantly, PPERSIST cannot save objects of arbitrary class or
     function type. 
@@ -76,8 +78,6 @@ def cansave(v: Any) -> bool:
             if not cansave(v1):
                 return False
         return True
-
-    print(f'Cannot save {t}')
     return False
 
 
@@ -92,25 +92,24 @@ def save(filename: str, *args: Any) -> None:
     Only variables that can safely be reloaded will be saved.
     Currently, PPERSIST can save:
 
-      - None
       - Simple numbers (int, float, complex)
       - Strings
       - Numpy arrays (but not containing object)
       - Pandas dataframes and series (ditto)
-      - Lists, tuples, sets, and dicts containing those (even hierarchically).
+      - Lists, tuples, sets, and dicts containing those (even
+        hierarchically).
+      - None
 
     Importantly, PPERSIST will not save objects of arbitrary class or
     function type.
 
     To check whether a variable is saveable ahead of time, use CANSAVE.
     
-    Note that SAVE uses the INSPECT module to determine how it was
-    called. That means that VARi must all be simple variables and that
-    the FILENAME, if given as a direct string, may not contain commas
-    or quotation marks. Variable names must start with a letter and
-    may only contain letters, numbers, and underscore.
+    Note that SAVE uses the INSPECT module to discover the names of
+    the variables to be saved. That means that VARi must all be simple
+    variables, not aribitary expressions.
     
-    OK examples:
+    OK example:
     
       x = 3
       y = 'Hello'
@@ -118,58 +117,51 @@ def save(filename: str, *args: Any) -> None:
     
       save('/tmp/test.pkl', x, y, z)
     
-      filename = '/tmp/test,1.pkl'
-      save(filename, x, y, z)
-    
-    Bad examples:
-    
-      save('/tmp/test,1.pkl', x, y)
+    Bad example:
     
       save('/tmp/test.pkl', x + 3)
 
     '''
     
     frame = inspect.currentframe().f_back
-    string = inspect.getframeinfo(frame).code_context[0]
-    sol = string.find('(') + 1
-    eol = string.find(')')
-    names = [a.strip() for a in string[sol:eol].split(',')]
-    names.pop(0)
-    if len(names) != len(args):
-        raise ValueError('Bad call to SAVE')
-    nre = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-    N = len(args)
-    for k in range(N):
-        if not nre.match(names[k]):
-            raise ValueError('Bad variable name: ' + names[k])
-        if not cansave(args[k]):
-            raise ValueError('Cannot save variable: ' + names[k])
+
+    names = {}
+    for name, val in frame.f_locals.items():
+        names[id(val)] = name
+    for name, val in frame.f_globals.items():
+        if name not in frame.f_locals:
+            names[id(val)] = name
 
     dct = {}
-    for k in range(N):
-        dct[names[k]] = args[k]
+    for k, a in enumerate(args):
+        name = names.get(id(a))
+        if name:
+            dct[name] = a
+        else:
+            raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)} as a variable in caller's context")
+
     savedict(filename, dct)
 
     
 def savedict(filename: str, dct: Dict[str, Any]) -> None:
     '''SAVEDICT - Save data from a DICT
     
-    SAVEDICT(filename, dct), where DCT is a `dict`, saves the data contained
-    therein as a PICKLE file.
+    SAVEDICT(filename, dct), where DCT is a `dict`, saves the data
+    contained therein as a PICKLE file.
 
     See SAVE for the type of content that SAVEDICT can save.
 
     See LOAD, LOADDICT, and MLOAD for how to reload saved data.
+
     '''
     nre = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     for k, v in dct.items():
         if not nre.match(k):
-            raise ValueError('Bad variable name: ' + k)
+            raise ValueError(f"Bad variable name: “{k}”")
         if not cansave(v):
-            raise ValueError('Cannot save variable: ' + k)
-
-    with open(filename, 'wb') as fd:  
-        pickle.dump(dct, fd, pickle.HIGHEST_PROTOCOL)
+            raise ValueError(f"Cannot save variable “{k}” of type {type(v)}")
+        
+    savedict_ignorewhitelist(filename, dct)
 
         
 def savedict_ignorewhitelist(filename: str, dct: Dict[str, Any]) -> None:
@@ -268,8 +260,7 @@ def _maketuple(dct):
                     k = Tuple.revmap[k]
                 else:
                     raise KeyError(k)
-            else:
-                return super().__getitem__(k)
+            return super().__getitem__(k)
         def __str__(self):
             hdr = "Tuple with fields:\n  "
             return hdr + "\n  ".join(Tuple.revmap.keys())
@@ -290,7 +281,8 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
     x = LOAD(filename) loads the file named FILENAME which should have
     been created by SAVE or SAVEDICT.
     
-    The result is a named tuple with the original variable names as keys.
+    The result is a named tuple with the original variable names as
+    keys.
 
     v1, v2, ..., vn = LOAD(filename) immediately unpacks the tuple.
 
@@ -311,7 +303,7 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
 def mload(filename: str, trusted: bool = False) -> None:
     '''MLOAD - Reload data saved with SAVE
     
-    MLOAD(filename)  loads the variables saved by SAVE(filename, ...) 
+    MLOAD(filename) loads the variables saved by SAVE(filename, ...) 
     directly into the caller's namespace.
     
     This is a super ugly Matlab-style hack, but occasionally convenient.
@@ -335,66 +327,6 @@ def mload(filename: str, trusted: bool = False) -> None:
     for k in names:
         frame.f_locals[k] = dct[k]
     print(f'Loaded the following: {", ".join(names)}.')
-
-
-class Saver:
-    """Object-oriented interface to saving with ppersist.
-
-    This allows the syntax
-
-        with ppersist.Saver(filename) as pp:
-            pp.save(var1, var2, ...)
-
-    The main advantage over plain
-
-        ppersist.save(filename, var1, var2, ...)
-
-    is that FILENAME may be an arbitrary expression.
-    """
-    def __init__(self, filename: str):
-        self.filename = filename
-        self.opened = False
-
-    def __enter__(self):
-        self.opened = True
-        self.dct = {}
-        return self
-
-    def save(self, *args: Any) -> None:
-        """Save the named variables into the file
-
-        This uses INSPECT just like `ppersist.save` does.
-
-        Use SAVE multiple times to save additional variables.
-
-        The data are only actually saved once the Saver is closed.
-        
-        """
-        if not self.opened:
-            raise ValueError("Cannot save without opening first")
-        frame = inspect.currentframe().f_back
-        string = inspect.getframeinfo(frame).code_context[0]
-        sol = string.find('(') + 1
-        eol = string.find(')')
-        names = [a.strip() for a in string[sol:eol].split(',')]
-        if len(names) != len(args):
-            raise ValueError('Bad call to SAVE')
-        nre = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-        N = len(args)
-        for k in range(N):
-            if not nre.match(names[k]):
-                raise ValueError('Bad variable name: ' + names[k])
-            if not cansave(args[k]):
-                raise ValueError('Cannot save variable: ' + names[k])
-
-        for k in range(N):
-            self.dct[names[k]] = args[k]
-
-    def __exit__(self, *args):
-        if not self.opened:
-            raise ValueError("Not opened")
-        savedict(self.filename, self.dct)
-        self.opened = False
 
     
 def fetch(url: str) -> NamedTuple:
