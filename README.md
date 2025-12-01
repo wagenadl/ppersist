@@ -2,8 +2,9 @@
 
 ## Introduction
 
-There are many ways[^1] to save data from python for future use, but none
-are quite as convenient as Matlab and Octave’s “save”:
+There are [many ways](#Alternatives) to save data from python for
+future use, but none are quite as convenient as Matlab and Octave’s
+“save”:
 
     save filename.mat variableA variableB ...
     
@@ -24,14 +25,13 @@ to save some variables, and
     
 to reload them into a `namedtuple`. 
 
-[^1]: See the [Alternatives](#Alternatives) section at the end of this
-document.
 
 ## Installation
 
 As easy as:
 
     pip install ppersist
+
 
 ## Saving data
 
@@ -40,10 +40,11 @@ The most straightforward way to save your data is
     ppersist.save("filename.pkl", variableA, variableB, ...)
 
 Note that this uses the `inspect` module to discover the names of the
-variables to be saved. That means that variableA, variableB, etc.,
-must all be simple variables, not arbitrary expressions.
+variables to be saved. That means that *variableA*, *variableB*, etc.,
+must all be simple variables, not arbitrary expressions. (In other
+words, you cannot `ppersist.save("filename.pkl", x + 3)`.)
 
-Alternatively, if your data are already packaged in a dictionary, you
+Alternatively, if your data are already contained in a dictionary, you
 can write
 
     ppersist.savedict("filename.pkl", dct)
@@ -80,6 +81,18 @@ unpythonic and confuses IDEs, so is not generally recommended except
 for throw-away code typed directly into a console.
 
 
+## Fetching data from the web
+
+To retrieve data from a website, you can write
+
+    data = ppersist.fetch("https://somewhere.net/data.pkl")
+    
+This provides a very convenient way to distribute example data for
+Jupyter notebooks demonstrating data analysis packages. Internally,
+`fetch` makes use of a [whitelist mechanism](#Security) to
+ensure only safe data types are loaded.
+
+
 ## Considerations of security and reliability
 
 Naturally, you want to be sure that you will be able to reload your
@@ -89,7 +102,7 @@ First of all, be reminded that ppersist is Free Software. As such, it
 is “distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.” (Please read the [Full license
-terms](./LICENSE).)
+terms](https://github.com/wagenadl/ppersist/blob/main/LICENSE).)
 
 That said, the author shares your concerns and has made efforts to
 make ppersist safe and reliable. Read on for details.
@@ -102,33 +115,34 @@ arbitrary code contained in a file it loads?
 
 Internally, ppersist uses `pickle` to save and load its files. Any
 quick glance online will tell you that `pickle` is not inherently
-safe. To mitigate this, `ppersist.load` and friends use a whitelist to
-strictly limit what can be loaded. Objects with types not on the
-whitelist are not loaded and their defining modules are not
+safe. To mitigate this concern, `ppersist.load` and friends use a
+whitelist to strictly limit what can be loaded. Objects with types not
+on the whitelist are not loaded and their defining modules are not
 imported. This should provide some reassurance that files you receive
 from others are safe to load.
 
-All of that said, if human lives depend on the integrity of your
-server, you should absolutely do your own due diligence.
+All of that said, if lives depend on the integrity of your server, you
+should absolutely do your own due diligence.
 
 
 ### Reliability
 
 By this I mean: How likely is it that you will be able to still access
-your data in the distant future? Here, the use of `pickle` is actually
-an advantage, as that module is part of core Python and unlikely to
-ever go away.
+your data in the (distant) future? Here, the use of `pickle` is
+actually an advantage, as that module is part of core Python and is
+therefore unlikely to go away.
 
 Before writing anything to disk, `ppersist.save` and friends check
 whether variables can be safely reloaded. If not, they raise an
 exception. This should provide some reassurance that you will be able
 to reload your files in the future.
 
-In case you do find yourself unable to load a definitely trusted file
-due to an inconsistency between ppersist’s save-time and load-time
-checking, you can disable the whitelist by passing `trusted=True` to
-`ppersist.load`. (If that happens, it is a bug, and the author wants
-to hear from you.)
+Should this fail, and you find yourself unable to load a file you
+definitely trust, you can disable the whitelist by passing
+`trusted=True` to `ppersist.load`. (If you find yourself in that
+position, it indicates a bug in ppersist. Please [raise an issue on
+github](https://github.com/wagenadl/ppersist/issues) or send me an
+email, and I will attempt to release a fix asap.)
 
 In the worst case, if you find yourself without access to ppersist
 entirely, you can always reload your data with
@@ -137,9 +151,10 @@ entirely, you can always reload your data with
     
 even though that provides no security at all.
 
+
 ## Alternatives
 
-To help you decide whether ppersist is for you, here are three
+To help you decide whether ppersist is for you, here are several
 alternatives I considered before writing ppersist.
 
 ### JSON
@@ -191,6 +206,7 @@ bulk”](https://github.com/apache/parquet-format). Similar
 considerations to HDF5 apply: the `fastparquet` library does not (yet)
 support all Python datatypes, so constructing an easy-to-use API like
 ppersist’s on top of it would be complex.
+
 
 ## Development
 
