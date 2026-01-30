@@ -27,8 +27,8 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist"]
-
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload",
+           "fetch", "savedict_ignorewhitelist"]
 
 def cansave(v: Any) -> bool:
     '''CANSAVE - Can a given object be saved by PPERSIST?
@@ -36,12 +36,13 @@ def cansave(v: Any) -> bool:
 
     Currently, PPERSIST can save:
 
-      - None
       - Simple numbers (int, float, complex)
       - Strings
       - Numpy arrays (but not containing object)
       - Pandas dataframes and series (ditto)
-      - Lists, tuples, sets, and dicts containing those (even hierarchically).
+      - Lists, tuples, sets, and dicts containing those (even
+        hierarchically).
+      - None
 
     Importantly, PPERSIST cannot save objects of arbitrary class or
     function type. 
@@ -76,7 +77,6 @@ def cansave(v: Any) -> bool:
             if not cansave(v1):
                 return False
         return True
-
     return False
 
 
@@ -91,12 +91,13 @@ def save(filename: str, *args: Any) -> None:
     Only variables that can safely be reloaded will be saved.
     Currently, PPERSIST can save:
 
-      - None
       - Simple numbers (int, float, complex)
       - Strings
       - Numpy arrays (but not containing object)
       - Pandas dataframes and series (ditto)
-      - Lists, tuples, sets, and dicts containing those (even hierarchically).
+      - Lists, tuples, sets, and dicts containing those (even
+        hierarchically).
+      - None
 
     Importantly, PPERSIST will not save objects of arbitrary class or
     function type.
@@ -105,10 +106,9 @@ def save(filename: str, *args: Any) -> None:
     
     Note that SAVE uses the INSPECT module to discover the names of
     the variables to be saved. That means that VARi must all be simple
-    variables. Variable names must start with a letter and may only
-    contain letters, numbers, and underscore.
+    variables, not aribitary expressions.
     
-    OK examples:
+    OK example:
     
       x = 3
       y = 'Hello'
@@ -116,10 +116,7 @@ def save(filename: str, *args: Any) -> None:
     
       save('/tmp/test.pkl', x, y, z)
     
-      filename = '/tmp/test,1.pkl'
-      save(filename, x, y, z)
-    
-    Bad examplee:
+    Bad example:
     
       save('/tmp/test.pkl', x + 3)
 
@@ -140,7 +137,7 @@ def save(filename: str, *args: Any) -> None:
         if name:
             dct[name] = a
         else:
-            raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)}")
+            raise ValueError(f"Cannot find parameter #{k+1} of type {type(a)} as a variable in caller's context")
 
     savedict(filename, dct)
 
@@ -148,12 +145,13 @@ def save(filename: str, *args: Any) -> None:
 def savedict(filename: str, dct: Dict[str, Any]) -> None:
     '''SAVEDICT - Save data from a DICT
     
-    SAVEDICT(filename, dct), where DCT is a `dict`, saves the data contained
-    therein as a PICKLE file.
+    SAVEDICT(filename, dct), where DCT is a `dict`, saves the data
+    contained therein as a PICKLE file.
 
     See SAVE for the type of content that SAVEDICT can save.
 
     See LOAD, LOADDICT, and MLOAD for how to reload saved data.
+
     '''
     nre = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     for k, v in dct.items():
