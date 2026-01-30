@@ -36,15 +36,15 @@ def cansave(v: Any) -> bool:
 
     Currently, PPERSIST can save:
 
-      - Simple numbers (int, float, complex)
+      - Simple numbers ("int", "float", "complex")
       - Strings
-      - Numpy arrays (but not containing object)
+      - Numpy arrays (but not if containing "object")
       - Pandas dataframes and series (ditto)
       - Lists, tuples, sets, and dicts containing those (even
         hierarchically).
       - None
 
-    Importantly, PPERSIST cannot save objects of arbitrary class or
+    Importantly, PPERSIST will not save objects of arbitrary class or
     function type. 
 
     PPERSIST will not attempt to load types it cannot save. This is
@@ -91,9 +91,9 @@ def save(filename: str, *args: Any) -> None:
     Only variables that can safely be reloaded will be saved.
     Currently, PPERSIST can save:
 
-      - Simple numbers (int, float, complex)
+      - Simple numbers ("int", "float", "complex", etc.)
       - Strings
-      - Numpy arrays (but not containing object)
+      - Numpy arrays (but not if containing "object")
       - Pandas dataframes and series (ditto)
       - Lists, tuples, sets, and dicts containing those (even
         hierarchically).
@@ -105,10 +105,10 @@ def save(filename: str, *args: Any) -> None:
     To check whether a variable is saveable ahead of time, use CANSAVE.
     
     Note that SAVE uses the INSPECT module to discover the names of
-    the variables to be saved. That means that VARi must all be simple
-    variables, not aribitary expressions.
+    the variables to be saved. That means that VAR1, VAR2, etc. must
+    all be straight-up variables, not aribitary expressions.
     
-    OK example:
+    Example of acceptable use:
     
       x = 3
       y = 'Hello'
@@ -116,9 +116,11 @@ def save(filename: str, *args: Any) -> None:
     
       save('/tmp/test.pkl', x, y, z)
     
-    Bad example:
+    Example of disallowed idiom:
     
       save('/tmp/test.pkl', x + 3)
+
+    See also: LOAD and SAVEDICT.
 
     '''
     
@@ -229,7 +231,6 @@ def _load(filename, trusted=False):
     
 
 def loaddict(filename: str, trusted: bool = False) -> Dict[str, Any]:
-
     '''LOADDICT - Reload data saved with SAVE or SAVEDICT
     
     x = LOADDICT(filename) loads the file named FILENAME, which should
@@ -243,6 +244,8 @@ def loaddict(filename: str, trusted: bool = False) -> Dict[str, Any]:
     any pickle.
 
     Important: Only use TRUSTED for files that you actually trust!
+
+    See also: LOAD, MLOAD
 
     '''
     
@@ -296,6 +299,8 @@ def load(filename: str, trusted: bool = False) -> NamedTuple:
 
     Important: Only use TRUSTED for files that you actually trust!
 
+    See also: SAVE, LOADDICT, FETCH, and MLOAD.
+
     '''
     
     dct = _load(filename, trusted)
@@ -308,9 +313,10 @@ def mload(filename: str, trusted: bool = False) -> None:
     MLOAD(filename) loads the variables saved by SAVE(filename, ...) 
     directly into the caller's namespace.
     
-    This is a super ugly Matlab-style hack, but occasionally convenient.
-    
-    LOAD and LOADDICT are cleaner alternatives.
+    While this can be convenient for quick testing, it is not
+    recommended in production code, if only because it throws off IDEs
+    that have no way of statically analyzing what variables are
+    created by MLOAD. LOAD and LOADDICT are cleaner alternatives.
     
     Optional parameter TRUSTED may be used to turn off safety checks
     in the underlying pickle loading. With the default TRUSTED=False, 
@@ -320,7 +326,8 @@ def mload(filename: str, trusted: bool = False) -> None:
     
     Important: Only use TRUSTED for files that you actually trust!
 
-'''
+    See also: SAVE, LOAD and LOADDICT.
+    '''
     dct = _load(filename, trusted)
     names = dct['__names__'] if '__names__' in dct else list(dct.keys())
 
@@ -334,9 +341,11 @@ def mload(filename: str, trusted: bool = False) -> None:
 def fetch(url: str) -> NamedTuple:
     """Fetch a ppersist-saved file from the internet
 
-    fetch(url) behaves just like load(file), except that it retrieves
+    FETCH(url) behaves just like LOAD(file), except that it retrieves
     the data from the internet. For security, there is no “trusted”
-    option on fetch().
+    option on FETCH().
+
+    See also: SAVE, LOAD.
     """
     import urllib.request
     with urllib.request.urlopen(url) as fd:
