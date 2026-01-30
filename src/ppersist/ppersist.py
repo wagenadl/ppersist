@@ -27,7 +27,7 @@ import collections
 from typing import NamedTuple, Dict, Any
 
 
-__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist""]
+__all__ = ["cansave", "save", "savedict", "load", "loaddict", "mload", "fetch", "savedict_ignorewhitelist"]
 
 
 def cansave(v: Any) -> bool:
@@ -188,9 +188,12 @@ _allowed = [
     
     ("numpy", "ndarray"),
     ("numpy", "dtype"),
-    ("numpy.core.multiarray", "scalar"),  
+    ("numpy.core.multiarray", "scalar"),
+    ("numpy._core.multiarray", "scalar"),
     ("numpy.core.numeric", "_frombuffer"),
+    ("numpy._core.numeric", "_frombuffer"),
     ("numpy.core.multiarray", "_reconstruct"),
+    ("numpy._core.multiarray", "_reconstruct"),
     
     ("pandas.core.frame", "DataFrame"),
     ("pandas.core.series", "Series"),
